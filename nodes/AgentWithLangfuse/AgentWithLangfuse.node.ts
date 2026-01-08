@@ -15,7 +15,10 @@ export class AgentWithLangfuse implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'AI Agent with Langfuse',
 		name: 'agentWithLangfuse',
-		icon: { light: 'file:AgentWithLangfuseLight.icon.svg', dark: 'file:AgentWithLangfuseDark.icon.svg' },
+		icon: {
+			light: 'file:AgentWithLangfuseLight.icon.svg',
+			dark: 'file:AgentWithLangfuseDark.icon.svg',
+		},
 		group: ['transform'],
 		description: 'Generates an action plan and executes it. Can use external tools.',
 		defaults: {
@@ -45,9 +48,7 @@ export class AgentWithLangfuse implements INodeType {
 					)
 			}}`,
 		outputs: ['main'],
-		credentials: [
-			{ name: 'langfuseCustomApi', required: true },
-		],
+		credentials: [{ name: 'langfuseCustomApi', required: true }],
 		properties: [
 			{
 				displayName:
@@ -113,7 +114,7 @@ export class AgentWithLangfuse implements INodeType {
 				noDataExpression: true,
 				displayOptions: {
 					show: {
-						'@version': [{ _cnd: { gte: 2.1 } }],
+						'@version': [{ _cnd: { gte: 2 } }],
 					},
 				},
 			},
