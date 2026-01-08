@@ -35,4 +35,11 @@ export const commonOptions: INodeProperties[] = [
 		description:
 			'Whether or not binary images should be automatically passed through to the agent as image type messages',
 	},
+	{
+		displayName: 'Include Usage Data',
+		name: 'includeUsage',
+		type: 'boolean',
+		default: false,
+		description: 'Include token usage and cost data in the API response for Langfuse tracing',
+	},
 ];
