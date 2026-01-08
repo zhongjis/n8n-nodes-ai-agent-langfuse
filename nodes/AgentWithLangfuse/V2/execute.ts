@@ -5,9 +5,9 @@ import type { AIMessageChunk, MessageContentText } from '@langchain/core/message
 import type { ChatPromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import {
-    AgentExecutor,
-    type AgentRunnableSequence,
-    createToolCallingAgent,
+	AgentExecutor,
+	type AgentRunnableSequence,
+	createToolCallingAgent,
 } from '@langchain/classic/agents';
 import type { BaseChatMemory } from '@langchain/classic/memory';
 import type { DynamicStructuredTool, Tool } from '@langchain/classic/tools';
@@ -23,19 +23,16 @@ import { CallbackHandler } from 'langfuse-langchain';
 
 import { getPromptInputByType } from '../src/utils/helpers';
 
-import {
-    getOptionalOutputParser,
-    type N8nOutputParser,
-} from '../src/utils/N8nOutputParser';
+import { getOptionalOutputParser, type N8nOutputParser } from '../src/utils/N8nOutputParser';
 
 import {
-    fixEmptyContentMessage,
-    getAgentStepsParser,
-    getChatModel,
-    getOptionalMemory,
-    getTools,
-    prepareMessages,
-    preparePrompt,
+	fixEmptyContentMessage,
+	getAgentStepsParser,
+	getChatModel,
+	getOptionalMemory,
+	getTools,
+	prepareMessages,
+	preparePrompt,
 } from '../src/utils/common';
 
 import { SYSTEM_MESSAGE } from '../src/utils/prompt';
@@ -50,148 +47,147 @@ import { SYSTEM_MESSAGE } from '../src/utils/prompt';
  * Creates an agent executor with the given configuration
  */
 function createAgentExecutor(
-    model: BaseChatModel,
-    tools: Array<DynamicStructuredTool | Tool>,
-    prompt: ChatPromptTemplate,
-    options: { maxIterations?: number; returnIntermediateSteps?: boolean },
-    outputParser?: N8nOutputParser,
-    memory?: BaseChatMemory,
-    fallbackModel?: BaseChatModel | null,
-    langfuseHandler?: CallbackHandler
+	model: BaseChatModel,
+	tools: Array<DynamicStructuredTool | Tool>,
+	prompt: ChatPromptTemplate,
+	options: { maxIterations?: number; returnIntermediateSteps?: boolean },
+	outputParser?: N8nOutputParser,
+	memory?: BaseChatMemory,
+	fallbackModel?: BaseChatModel | null,
+	langfuseHandler?: CallbackHandler,
 ) {
-    const callbacks = langfuseHandler ? [langfuseHandler] : [];
+	const callbacks = langfuseHandler ? [langfuseHandler] : [];
 
-    const agent = createToolCallingAgent({
-        llm: model,
-        tools,
-        prompt,
-        streamRunnable: false,
-    });
+	const agent = createToolCallingAgent({
+		llm: model,
+		tools,
+		prompt,
+		streamRunnable: false,
+	});
 
-    let fallbackAgent: AgentRunnableSequence | undefined;
-    if (fallbackModel) {
-        fallbackAgent = createToolCallingAgent({
-            llm: fallbackModel,
-            tools,
-            prompt,
-            streamRunnable: false,
-        });
-    }
-    const runnableAgent = RunnableSequence.from([
-        fallbackAgent ? agent.withFallbacks([fallbackAgent]) : agent,
-        getAgentStepsParser(outputParser, memory),
-        fixEmptyContentMessage,
-    ]) as AgentRunnableSequence;
+	let fallbackAgent: AgentRunnableSequence | undefined;
+	if (fallbackModel) {
+		fallbackAgent = createToolCallingAgent({
+			llm: fallbackModel,
+			tools,
+			prompt,
+			streamRunnable: false,
+		});
+	}
+	const runnableAgent = RunnableSequence.from([
+		fallbackAgent ? agent.withFallbacks([fallbackAgent]) : agent,
+		getAgentStepsParser(outputParser, memory),
+		fixEmptyContentMessage,
+	]) as AgentRunnableSequence;
 
-    runnableAgent.singleAction = false;
-    runnableAgent.streamRunnable = false;
+	runnableAgent.singleAction = false;
+	runnableAgent.streamRunnable = false;
 
-    return AgentExecutor.fromAgentAndTools({
-        agent: runnableAgent,
-        memory,
-        tools,
-        returnIntermediateSteps: options.returnIntermediateSteps === true,
-        maxIterations: options.maxIterations ?? 10,
-        callbacks,
-    });
+	return AgentExecutor.fromAgentAndTools({
+		agent: runnableAgent,
+		memory,
+		tools,
+		returnIntermediateSteps: options.returnIntermediateSteps === true,
+		maxIterations: options.maxIterations ?? 10,
+		callbacks,
+	});
 }
 
-
 async function processEventStream(
-    ctx: IExecuteFunctions,
-    eventStream: IterableReadableStream<StreamEvent>,
-    itemIndex: number,
-    returnIntermediateSteps: boolean = false,
+	ctx: IExecuteFunctions,
+	eventStream: IterableReadableStream<StreamEvent>,
+	itemIndex: number,
+	returnIntermediateSteps: boolean = false,
 ): Promise<{ output: string; intermediateSteps?: any[] }> {
-    const agentResult: { output: string; intermediateSteps?: any[] } = {
-        output: '',
-    };
+	const agentResult: { output: string; intermediateSteps?: any[] } = {
+		output: '',
+	};
 
-    if (returnIntermediateSteps) {
-        agentResult.intermediateSteps = [];
-    }
+	if (returnIntermediateSteps) {
+		agentResult.intermediateSteps = [];
+	}
 
-    ctx.sendChunk('begin', itemIndex);
-    for await (const event of eventStream) {
-        // Stream chat model tokens as they come in
-        switch (event.event) {
-            case 'on_chat_model_stream':
-                const chunk = event.data?.chunk as AIMessageChunk;
-                if (chunk?.content) {
-                    const chunkContent = chunk.content;
-                    let chunkText = '';
-                    if (Array.isArray(chunkContent)) {
-                        for (const message of chunkContent) {
-                            if (message?.type === 'text') {
-                                chunkText += (message as MessageContentText)?.text;
-                            }
-                        }
-                    } else if (typeof chunkContent === 'string') {
-                        chunkText = chunkContent;
-                    }
-                    ctx.sendChunk('item', itemIndex, chunkText);
+	ctx.sendChunk('begin', itemIndex);
+	for await (const event of eventStream) {
+		// Stream chat model tokens as they come in
+		switch (event.event) {
+			case 'on_chat_model_stream':
+				const chunk = event.data?.chunk as AIMessageChunk;
+				if (chunk?.content) {
+					const chunkContent = chunk.content;
+					let chunkText = '';
+					if (Array.isArray(chunkContent)) {
+						for (const message of chunkContent) {
+							if (message?.type === 'text') {
+								chunkText += (message as MessageContentText)?.text;
+							}
+						}
+					} else if (typeof chunkContent === 'string') {
+						chunkText = chunkContent;
+					}
+					ctx.sendChunk('item', itemIndex, chunkText);
 
-                    agentResult.output += chunkText;
-                }
-                break;
-            case 'on_chat_model_end':
-                // Capture full LLM response with tool calls for intermediate steps
-                if (returnIntermediateSteps && event.data) {
-                    const chatModelData = event.data as any;
-                    const output = chatModelData.output;
+					agentResult.output += chunkText;
+				}
+				break;
+			case 'on_chat_model_end':
+				// Capture full LLM response with tool calls for intermediate steps
+				if (returnIntermediateSteps && event.data) {
+					const chatModelData = event.data as any;
+					const output = chatModelData.output;
 
-                    // Check if this LLM response contains tool calls
-                    if (output?.tool_calls && output.tool_calls.length > 0) {
-                        for (const toolCall of output.tool_calls) {
-                            agentResult.intermediateSteps!.push({
-                                action: {
-                                    tool: toolCall.name,
-                                    toolInput: toolCall.args,
-                                    log:
-                                        output.content ||
-                                        `Calling ${toolCall.name} with input: ${JSON.stringify(toolCall.args)}`,
-                                    messageLog: [output], // Include the full LLM response
-                                    toolCallId: toolCall.id,
-                                    type: toolCall.type,
-                                },
-                            });
-                        }
-                    }
-                }
-                break;
-            case 'on_tool_end':
-                // Capture tool execution results and match with action
-                if (returnIntermediateSteps && event.data && agentResult.intermediateSteps!.length > 0) {
-                    const toolData = event.data as any;
-                    // Find the matching intermediate step for this tool call
-                    const matchingStep = agentResult.intermediateSteps!.find(
-                        (step) => !step.observation && step.action.tool === event.name,
-                    );
-                    if (matchingStep) {
-                        matchingStep.observation = toolData.output;
-                    }
-                }
-                break;
-            default:
-                break;
-        }
-    }
-    ctx.sendChunk('end', itemIndex);
+					// Check if this LLM response contains tool calls
+					if (output?.tool_calls && output.tool_calls.length > 0) {
+						for (const toolCall of output.tool_calls) {
+							agentResult.intermediateSteps!.push({
+								action: {
+									tool: toolCall.name,
+									toolInput: toolCall.args,
+									log:
+										output.content ||
+										`Calling ${toolCall.name} with input: ${JSON.stringify(toolCall.args)}`,
+									messageLog: [output], // Include the full LLM response
+									toolCallId: toolCall.id,
+									type: toolCall.type,
+								},
+							});
+						}
+					}
+				}
+				break;
+			case 'on_tool_end':
+				// Capture tool execution results and match with action
+				if (returnIntermediateSteps && event.data && agentResult.intermediateSteps!.length > 0) {
+					const toolData = event.data as any;
+					// Find the matching intermediate step for this tool call
+					const matchingStep = agentResult.intermediateSteps!.find(
+						(step) => !step.observation && step.action.tool === event.name,
+					);
+					if (matchingStep) {
+						matchingStep.observation = toolData.output;
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	ctx.sendChunk('end', itemIndex);
 
-    return agentResult;
+	return agentResult;
 }
 
 /**
  * Check if the model is using the Responses API which is not compatible with this version
  */
 function checkIsResponsesApi(model: BaseChatModel | null | undefined): boolean {
-    try {
-        const isUsingResponsesApi =
-            !!model && model instanceof ChatOpenAI && 'useResponsesApi' in model && model.useResponsesApi;
-        return isUsingResponsesApi;
-    } catch (error) {
-        return false;
-    }
+	try {
+		const isUsingResponsesApi =
+			!!model && model instanceof ChatOpenAI && 'useResponsesApi' in model && model.useResponsesApi;
+		return isUsingResponsesApi;
+	} catch (error) {
+		return false;
+	}
 }
 
 /* -----------------------------------------------------------
@@ -209,245 +205,244 @@ function checkIsResponsesApi(model: BaseChatModel | null | undefined): boolean {
  * @returns The array of execution data for all processed items
  */
 export async function toolsAgentExecute(
-    this: IExecuteFunctions | ISupplyDataFunctions,
+	this: IExecuteFunctions | ISupplyDataFunctions,
 ): Promise<INodeExecutionData[][]> {
-    const version = this.getNode().typeVersion;
-    this.logger.debug('Executing Tools Agent V2');
+	const version = this.getNode().typeVersion;
+	this.logger.debug('Executing Tools Agent V2');
 
-    const returnData: INodeExecutionData[] = [];
-    const items = this.getInputData();
-    const batchSize = this.getNodeParameter('options.batching.batchSize', 0, 1) as number;
-    const delayBetweenBatches = this.getNodeParameter(
-        'options.batching.delayBetweenBatches',
-        0,
-        0,
-    ) as number;
-    const needsFallback = this.getNodeParameter('needsFallback', 0, false) as boolean;
-    const memory = await getOptionalMemory(this);
-    const model = await getChatModel(this, 0);
-    assert(model, 'Please connect a model to the Chat Model input');
-    const fallbackModel = needsFallback ? await getChatModel(this, 1) : null;
+	const returnData: INodeExecutionData[] = [];
+	const items = this.getInputData();
+	const batchSize = this.getNodeParameter('options.batching.batchSize', 0, 1) as number;
+	const delayBetweenBatches = this.getNodeParameter(
+		'options.batching.delayBetweenBatches',
+		0,
+		0,
+	) as number;
+	const needsFallback = this.getNodeParameter('needsFallback', 0, false) as boolean;
+	const memory = await getOptionalMemory(this);
+	const model = await getChatModel(this, 0);
+	assert(model, 'Please connect a model to the Chat Model input');
+	const fallbackModel = needsFallback ? await getChatModel(this, 1) : null;
 
-    // Check if models are using Responses API which is not compatible with this version
-    if (checkIsResponsesApi(model)) {
-        throw new NodeOperationError(
-            this.getNode(),
-            `This model is not supported in ${version} version of the Agent node. Please upgrade the Agent node to the latest version.`,
-        );
-    }
+	// Check if models are using Responses API which is not compatible with this version
+	if (checkIsResponsesApi(model)) {
+		throw new NodeOperationError(
+			this.getNode(),
+			`This model is not supported in ${version} version of the Agent node. Please upgrade the Agent node to the latest version.`,
+		);
+	}
 
-    if (checkIsResponsesApi(fallbackModel)) {
-        throw new NodeOperationError(
-            this.getNode(),
-            `This fallback model is not supported in ${version} version of the Agent node. Please upgrade the Agent node to the latest version.`,
-        );
-    }
+	if (checkIsResponsesApi(fallbackModel)) {
+		throw new NodeOperationError(
+			this.getNode(),
+			`This fallback model is not supported in ${version} version of the Agent node. Please upgrade the Agent node to the latest version.`,
+		);
+	}
 
-    if (needsFallback && !fallbackModel) {
-        throw new NodeOperationError(
-            this.getNode(),
-            'Please connect a model to the Fallback Model input or disable the fallback option',
-        );
-    }
+	if (needsFallback && !fallbackModel) {
+		throw new NodeOperationError(
+			this.getNode(),
+			'Please connect a model to the Fallback Model input or disable the fallback option',
+		);
+	}
 
-    // Check if streaming is enabled
-    const enableStreaming = this.getNodeParameter('options.enableStreaming', 0, true) as boolean;
+	// Check if streaming is enabled
+	const enableStreaming = this.getNodeParameter('options.enableStreaming', 0, true) as boolean;
 
-    for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchPromises = batch.map(async (_item, batchItemIndex) => {
-            const itemIndex = i + batchItemIndex;
+	for (let i = 0; i < items.length; i += batchSize) {
+		const batch = items.slice(i, i + batchSize);
+		const batchPromises = batch.map(async (_item, batchItemIndex) => {
+			const itemIndex = i + batchItemIndex;
 
-            const input = getPromptInputByType({
-                ctx: this,
-                i: itemIndex,
-                inputKey: 'text',
-                promptTypeKey: 'promptType',
-            });
-            if (input === undefined) {
-                throw new NodeOperationError(this.getNode(), 'The "text" parameter is empty.');
-            }
-            const outputParser = await getOptionalOutputParser(this, itemIndex);
-            const tools = await getTools(this, outputParser);
-            const options = this.getNodeParameter('options', itemIndex, {}) as {
-                systemMessage?: string;
-                maxIterations?: number;
-                returnIntermediateSteps?: boolean;
-                passthroughBinaryImages?: boolean;
-            };
+			const input = getPromptInputByType({
+				ctx: this,
+				i: itemIndex,
+				inputKey: 'text',
+				promptTypeKey: 'promptType',
+			});
+			if (input === undefined) {
+				throw new NodeOperationError(this.getNode(), 'The "text" parameter is empty.');
+			}
+			const outputParser = await getOptionalOutputParser(this, itemIndex);
+			const tools = await getTools(this, outputParser);
+			const options = this.getNodeParameter('options', itemIndex, {}) as {
+				systemMessage?: string;
+				maxIterations?: number;
+				returnIntermediateSteps?: boolean;
+				passthroughBinaryImages?: boolean;
+			};
 
-            const wrappedTools: Array<any> = [];
-            for (const t of tools) {
-                // MCP Toolkit
-                if ('tools' in (t as any) && Array.isArray((t as any).tools)) {
-                    const innerTools = (t as any).tools;
-                    wrappedTools.push(...innerTools);
-                    continue;
-                }
+			const wrappedTools: Array<any> = [];
+			for (const t of tools) {
+				// MCP Toolkit
+				if ('tools' in (t as any) && Array.isArray((t as any).tools)) {
+					const innerTools = (t as any).tools;
+					wrappedTools.push(...innerTools);
+					continue;
+				}
 
-                // normal tool
-                wrappedTools.push(t);
-            }
+				// normal tool
+				wrappedTools.push(t);
+			}
 
-            const toolsFinal = wrappedTools;
+			const toolsFinal = wrappedTools;
 
-            // Langfuse
-            const langfuseCreds = await this.getCredentials('langfuseCustomApi');
+			// Langfuse
+			const langfuseCreds = await this.getCredentials('langfuseCustomApi');
 
-            const rawMetadata = this.getNodeParameter('langfuseMetadata', itemIndex, {}) as any;
-            let parsedCustomMetadata: Record<string, unknown> | undefined;
-            if (typeof rawMetadata.customMetadata === 'string') {
-                try {
-                    parsedCustomMetadata = JSON.parse(rawMetadata.customMetadata);
-                } catch (e) {
-                    this.logger.warn('Invalid JSON in Langfuse metadata, ignoring customMetadata.');
-                }
-            } else {
-                parsedCustomMetadata = rawMetadata.customMetadata;
-            }
+			const rawMetadata = this.getNodeParameter('langfuseMetadata', itemIndex, {}) as any;
+			let parsedCustomMetadata: Record<string, unknown> | undefined;
+			if (typeof rawMetadata.customMetadata === 'string') {
+				try {
+					parsedCustomMetadata = JSON.parse(rawMetadata.customMetadata);
+				} catch (e) {
+					this.logger.warn('Invalid JSON in Langfuse metadata, ignoring customMetadata.');
+				}
+			} else {
+				parsedCustomMetadata = rawMetadata.customMetadata;
+			}
 
-            const langfuseMetadata = {
-                customMetadata: parsedCustomMetadata,
-                sessionId: rawMetadata.sessionId,
-                userId: rawMetadata.userId,
-            };
+			const langfuseMetadata = {
+				customMetadata: parsedCustomMetadata,
+				sessionId: rawMetadata.sessionId,
+				userId: rawMetadata.userId,
+			};
 
-            const langfuseHandler = new CallbackHandler({
-                publicKey: langfuseCreds.publicKey as string,
-                secretKey: langfuseCreds.secretKey as string,
-                baseUrl: (langfuseCreds.url as string) ?? process.env.LANGFUSE_HOST,
-                sessionId: langfuseMetadata.sessionId,
-                userId: langfuseMetadata.userId,
-                metadata: langfuseMetadata.customMetadata,
-            });
+			const langfuseHandler = new CallbackHandler({
+				publicKey: langfuseCreds.publicKey as string,
+				secretKey: langfuseCreds.secretKey as string,
+				baseUrl: (langfuseCreds.url as string) ?? process.env.LANGFUSE_HOST,
+				sessionId: langfuseMetadata.sessionId,
+				userId: langfuseMetadata.userId,
+				metadata: langfuseMetadata.customMetadata,
+			});
 
-            // Prepare the prompt messages and prompt template.
-            const messages = await prepareMessages(this, itemIndex, {
-                systemMessage: options.systemMessage,
-                passthroughBinaryImages: options.passthroughBinaryImages ?? true,
-                outputParser,
-            });
-            const prompt: ChatPromptTemplate = preparePrompt(messages);
+			// Prepare the prompt messages and prompt template.
+			const messages = await prepareMessages(this, itemIndex, {
+				systemMessage: options.systemMessage,
+				passthroughBinaryImages: options.passthroughBinaryImages ?? true,
+				outputParser,
+			});
+			const prompt: ChatPromptTemplate = preparePrompt(messages);
 
-            // Create executors for primary and fallback models
-            const executor = createAgentExecutor(
-                model,
-                toolsFinal,
-                prompt,
-                options,
-                outputParser,
-                memory,
-                fallbackModel,
-                // langfuseHandler
-            );
-            // Invoke with fallback logic
-            const invokeParams: Record<string, any> = {
-                input,
-                system_message: options.systemMessage ?? SYSTEM_MESSAGE,
-            };
+			// Create executors for primary and fallback models
+			const executor = createAgentExecutor(
+				model,
+				toolsFinal,
+				prompt,
+				options,
+				outputParser,
+				memory,
+				fallbackModel,
+				// langfuseHandler
+			);
+			// Invoke with fallback logic
+			const invokeParams: Record<string, any> = {
+				input,
+				system_message: options.systemMessage ?? SYSTEM_MESSAGE,
+			};
 
-            // Only add formatting_instructions if output parser is connected
-            if (outputParser) {
-                invokeParams.formatting_instructions =
-                    'IMPORTANT: For your response to user, you MUST use the `format_final_json_response` tool with your complete answer formatted according to the required schema. Do not attempt to format the JSON manually - always use this tool. Your response will be rejected if it is not properly formatted through this tool. Only use this tool once you are ready to provide your final answer.';
-            }
-            const executeOptions = {
-                signal: this.getExecutionCancelSignal(),
-                callbacks: [langfuseHandler],
-                metadata: {
-                    sessionId: langfuseMetadata.sessionId,
-                    userId: langfuseMetadata.userId,
-                    ...langfuseMetadata.customMetadata,
-                },
-            };
+			// Only add formatting_instructions if output parser is connected
+			if (outputParser) {
+				invokeParams.formatting_instructions =
+					'IMPORTANT: For your response to user, you MUST use the `format_final_json_response` tool with your complete answer formatted according to the required schema. Do not attempt to format the JSON manually - always use this tool. Your response will be rejected if it is not properly formatted through this tool. Only use this tool once you are ready to provide your final answer.';
+			}
+			const executeOptions = {
+				signal: this.getExecutionCancelSignal(),
+				callbacks: [langfuseHandler],
+				metadata: {
+					sessionId: langfuseMetadata.sessionId,
+					userId: langfuseMetadata.userId,
+					...langfuseMetadata.customMetadata,
+				},
+			};
 
-            // Check if streaming is actually available
-            const isStreamingAvailable = 'isStreaming' in this ? this.isStreaming?.() : undefined;
+			// Check if streaming is actually available
+			const isStreamingAvailable = 'isStreaming' in this ? this.isStreaming?.() : undefined;
 
-            if (
-                'isStreaming' in this &&
-                enableStreaming &&
-                isStreamingAvailable &&
-                this.getNode().typeVersion >= 2
-            ) {
+			if (
+				'isStreaming' in this &&
+				enableStreaming &&
+				isStreamingAvailable &&
+				this.getNode().typeVersion >= 2
+			) {
+				// Get chat history respecting the context window length configured in memory
+				let chatHistory;
+				if (memory) {
+					// Load memory variables to respect context window length
+					const memoryVariables = await memory.loadMemoryVariables({});
+					chatHistory = memoryVariables['chat_history'];
+				}
+				const eventStream = executor.streamEvents(
+					{
+						...invokeParams,
+						chat_history: chatHistory ?? undefined,
+					},
+					{
+						version: 'v2',
+						...executeOptions,
+					},
+				);
 
-                // Get chat history respecting the context window length configured in memory
-                let chatHistory;
-                if (memory) {
-                    // Load memory variables to respect context window length
-                    const memoryVariables = await memory.loadMemoryVariables({});
-                    chatHistory = memoryVariables['chat_history'];
-                }
-                const eventStream = executor.streamEvents(
-                    {
-                        ...invokeParams,
-                        chat_history: chatHistory ?? undefined,
-                    },
-                    {
-                        version: 'v2',
-                        ...executeOptions,
-                    },
-                );
+				return await processEventStream(
+					this,
+					eventStream,
+					itemIndex,
+					options.returnIntermediateSteps,
+				);
+			} else {
+				// Handle regular execution
+				return await executor.invoke(invokeParams, executeOptions);
+			}
+		});
 
-                return await processEventStream(
-                    this,
-                    eventStream,
-                    itemIndex,
-                    options.returnIntermediateSteps,
-                );
-            } else {
-                // Handle regular execution
-                return await executor.invoke(invokeParams, executeOptions);
-            }
-        });
+		const batchResults = await Promise.allSettled(batchPromises);
+		// This is only used to check if the output parser is connected
+		// so we can parse the output if needed. Actual output parsing is done in the loop above
+		const outputParser = await getOptionalOutputParser(this, 0);
+		batchResults.forEach((result, index) => {
+			const itemIndex = i + index;
+			if (result.status === 'rejected') {
+				const error = result.reason as Error;
+				if (this.continueOnFail()) {
+					returnData.push({
+						json: { error: error.message },
+						pairedItem: { item: itemIndex },
+					});
+					return;
+				} else {
+					throw new NodeOperationError(this.getNode(), error);
+				}
+			}
+			const response = result.value;
+			// If memory and outputParser are connected, parse the output.
+			if (memory && outputParser) {
+				const parsedOutput = jsonParse<{ output: Record<string, unknown> }>(
+					response.output as string,
+				);
+				response.output = parsedOutput?.output ?? parsedOutput;
+			}
 
-        const batchResults = await Promise.allSettled(batchPromises);
-        // This is only used to check if the output parser is connected
-        // so we can parse the output if needed. Actual output parsing is done in the loop above
-        const outputParser = await getOptionalOutputParser(this, 0);
-        batchResults.forEach((result, index) => {
-            const itemIndex = i + index;
-            if (result.status === 'rejected') {
-                const error = result.reason as Error;
-                if (this.continueOnFail()) {
-                    returnData.push({
-                        json: { error: error.message },
-                        pairedItem: { item: itemIndex },
-                    });
-                    return;
-                } else {
-                    throw new NodeOperationError(this.getNode(), error);
-                }
-            }
-            const response = result.value;
-            // If memory and outputParser are connected, parse the output.
-            if (memory && outputParser) {
-                const parsedOutput = jsonParse<{ output: Record<string, unknown> }>(
-                    response.output as string,
-                );
-                response.output = parsedOutput?.output ?? parsedOutput;
-            }
+			// Omit internal keys before returning the result.
+			const itemResult = {
+				json: omit(
+					response,
+					'system_message',
+					'formatting_instructions',
+					'input',
+					'chat_history',
+					'agent_scratchpad',
+				),
+				pairedItem: { item: itemIndex },
+			};
 
-            // Omit internal keys before returning the result.
-            const itemResult = {
-                json: omit(
-                    response,
-                    'system_message',
-                    'formatting_instructions',
-                    'input',
-                    'chat_history',
-                    'agent_scratchpad',
-                ),
-                pairedItem: { item: itemIndex },
-            };
+			returnData.push(itemResult);
+		});
 
-            returnData.push(itemResult);
-        });
+		if (i + batchSize < items.length && delayBetweenBatches > 0) {
+			await sleep(delayBetweenBatches);
+		}
+	}
 
-        if (i + batchSize < items.length && delayBetweenBatches > 0) {
-            await sleep(delayBetweenBatches);
-        }
-    }
-
-    return [returnData];
+	return [returnData];
 }

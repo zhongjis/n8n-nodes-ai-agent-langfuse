@@ -7,14 +7,14 @@ export type N8nOutputParser = N8nStructuredOutputParser;
 export { N8nStructuredOutputParser };
 
 export async function getOptionalOutputParser(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
-    index: number = 0,
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
+	index: number = 0,
 ): Promise<N8nOutputParser | undefined> {
-    if (ctx.getNodeParameter('hasOutputParser', 0, true) === true) {
-        return (await ctx.getInputConnectionData(
-            'ai_outputParser',
-            index,
-        )) as N8nStructuredOutputParser;
-    }
-    return undefined;
+	if (ctx.getNodeParameter('hasOutputParser', 0, true) === true) {
+		return (await ctx.getInputConnectionData(
+			'ai_outputParser',
+			index,
+		)) as N8nStructuredOutputParser;
+	}
+	return undefined;
 }

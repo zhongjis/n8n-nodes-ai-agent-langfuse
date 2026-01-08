@@ -20,12 +20,9 @@ import { type N8nOutputParser } from './N8nOutputParser';
  * Retrieve the output parser schema.
  * If the parser does not return a valid schema, default to a schema with a single text field.
  */
-export function getOutputParserSchema(
-    outputParser: N8nOutputParser,
-): ZodObject<any> {
-    const schema =
-        (outputParser.getSchema() as ZodObject<any>) ?? z.object({ text: z.string() });
-    return schema;
+export function getOutputParserSchema(outputParser: N8nOutputParser): ZodObject<any> {
+	const schema = (outputParser.getSchema() as ZodObject<any>) ?? z.object({ text: z.string() });
+	return schema;
 }
 
 /* -----------------------------------------------------------
@@ -40,41 +37,41 @@ export function getOutputParserSchema(
  * @returns A HumanMessage containing the binary image messages.
  */
 export async function extractBinaryMessages(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
-    itemIndex: number,
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
+	itemIndex: number,
 ): Promise<HumanMessage> {
-    const binaryData = ctx.getInputData()?.[itemIndex]?.binary ?? {};
-    const binaryMessages = await Promise.all(
-        Object.values(binaryData)
-            .filter((data) => data.mimeType.startsWith('image/'))
-            .map(async (data) => {
-                let binaryUrlString: string;
+	const binaryData = ctx.getInputData()?.[itemIndex]?.binary ?? {};
+	const binaryMessages = await Promise.all(
+		Object.values(binaryData)
+			.filter((data) => data.mimeType.startsWith('image/'))
+			.map(async (data) => {
+				let binaryUrlString: string;
 
-                // In filesystem mode we need to get binary stream by id before converting it to buffer
-                if (data.id) {
-                    const binaryBuffer = await ctx.helpers.binaryToBuffer(
-                        await ctx.helpers.getBinaryStream(data.id),
-                    );
-                    binaryUrlString = `data:${data.mimeType};base64,${Buffer.from(binaryBuffer).toString(
-                        BINARY_ENCODING,
-                    )}`;
-                } else {
-                    binaryUrlString = data.data.includes('base64')
-                        ? data.data
-                        : `data:${data.mimeType};base64,${data.data}`;
-                }
+				// In filesystem mode we need to get binary stream by id before converting it to buffer
+				if (data.id) {
+					const binaryBuffer = await ctx.helpers.binaryToBuffer(
+						await ctx.helpers.getBinaryStream(data.id),
+					);
+					binaryUrlString = `data:${data.mimeType};base64,${Buffer.from(binaryBuffer).toString(
+						BINARY_ENCODING,
+					)}`;
+				} else {
+					binaryUrlString = data.data.includes('base64')
+						? data.data
+						: `data:${data.mimeType};base64,${data.data}`;
+				}
 
-                return {
-                    type: 'image_url',
-                    image_url: {
-                        url: binaryUrlString,
-                    },
-                };
-            }),
-    );
-    return new HumanMessage({
-        content: [...binaryMessages],
-    });
+				return {
+					type: 'image_url',
+					image_url: {
+						url: binaryUrlString,
+					},
+				};
+			}),
+	);
+	return new HumanMessage({
+		content: [...binaryMessages],
+	});
 }
 
 /* -----------------------------------------------------------
@@ -92,27 +89,27 @@ export async function extractBinaryMessages(
  * @returns The fixed agent steps
  */
 export function fixEmptyContentMessage(
-    steps: AgentFinish | ToolsAgentAction[],
+	steps: AgentFinish | ToolsAgentAction[],
 ): AgentFinish | ToolsAgentAction[] {
-    if (!Array.isArray(steps)) return steps;
+	if (!Array.isArray(steps)) return steps;
 
-    steps.forEach((step) => {
-        if ('messageLog' in step && step.messageLog !== undefined) {
-            if (Array.isArray(step.messageLog)) {
-                step.messageLog.forEach((message: BaseMessage) => {
-                    if ('content' in message && Array.isArray(message.content)) {
-                        (message.content as Array<{ input?: string | object }>).forEach((content) => {
-                            if (content.input === '') {
-                                content.input = {};
-                            }
-                        });
-                    }
-                });
-            }
-        }
-    });
+	steps.forEach((step) => {
+		if ('messageLog' in step && step.messageLog !== undefined) {
+			if (Array.isArray(step.messageLog)) {
+				step.messageLog.forEach((message: BaseMessage) => {
+					if ('content' in message && Array.isArray(message.content)) {
+						(message.content as Array<{ input?: string | object }>).forEach((content) => {
+							if (content.input === '') {
+								content.input = {};
+							}
+						});
+					}
+				});
+			}
+		}
+	});
 
-    return steps;
+	return steps;
 }
 
 /**
@@ -147,34 +144,34 @@ export function fixEmptyContentMessage(
  * @returns The modified agent finish steps or the original steps.
  */
 export function handleAgentFinishOutput(
-    steps: AgentFinish | AgentAction[],
+	steps: AgentFinish | AgentAction[],
 ): AgentFinish | AgentAction[] {
-    type AgentMultiOutputFinish = AgentFinish & {
-        returnValues: { output: Array<{ text: string; type: string; index: number }> };
-    };
-    const agentFinishSteps = steps as AgentMultiOutputFinish | AgentFinish;
+	type AgentMultiOutputFinish = AgentFinish & {
+		returnValues: { output: Array<{ text: string; type: string; index: number }> };
+	};
+	const agentFinishSteps = steps as AgentMultiOutputFinish | AgentFinish;
 
-    if (agentFinishSteps.returnValues) {
-        const isMultiOutput = Array.isArray(agentFinishSteps.returnValues?.output);
-        if (isMultiOutput) {
-            // If all items in the multi-output array are of type 'text', merge them into a single string
-            const multiOutputSteps = agentFinishSteps.returnValues.output as Array<{
-                index: number;
-                type: string;
-                text: string;
-            }>;
-            const isTextOnly = multiOutputSteps.every((output) => 'text' in output);
-            if (isTextOnly) {
-                agentFinishSteps.returnValues.output = multiOutputSteps
-                    .map((output) => output.text)
-                    .join('\n')
-                    .trim();
-            }
-            return agentFinishSteps;
-        }
-    }
+	if (agentFinishSteps.returnValues) {
+		const isMultiOutput = Array.isArray(agentFinishSteps.returnValues?.output);
+		if (isMultiOutput) {
+			// If all items in the multi-output array are of type 'text', merge them into a single string
+			const multiOutputSteps = agentFinishSteps.returnValues.output as Array<{
+				index: number;
+				type: string;
+				text: string;
+			}>;
+			const isTextOnly = multiOutputSteps.every((output) => 'text' in output);
+			if (isTextOnly) {
+				agentFinishSteps.returnValues.output = multiOutputSteps
+					.map((output) => output.text)
+					.join('\n')
+					.trim();
+			}
+			return agentFinishSteps;
+		}
+	}
 
-    return agentFinishSteps;
+	return agentFinishSteps;
 }
 
 /**
@@ -186,13 +183,13 @@ export function handleAgentFinishOutput(
  * @returns The formatted output object
  */
 export function handleParsedStepOutput(
-    output: Record<string, unknown>,
-    memory?: BaseChatMemory,
+	output: Record<string, unknown>,
+	memory?: BaseChatMemory,
 ): { returnValues: Record<string, unknown>; log: string } {
-    return {
-        returnValues: memory ? { output: JSON.stringify(output) } : output,
-        log: 'Final response formatted',
-    };
+	return {
+		returnValues: memory ? { output: JSON.stringify(output) } : output,
+		log: 'Final response formatted',
+	};
 }
 
 /**
@@ -205,50 +202,50 @@ export function handleParsedStepOutput(
  * @returns The parsed steps with the final output
  */
 export const getAgentStepsParser =
-    (outputParser?: N8nOutputParser, memory?: BaseChatMemory) =>
-        async (steps: AgentFinish | AgentAction[]): Promise<AgentFinish | AgentAction[]> => {
-            // Check if the steps contain the 'format_final_json_response' tool invocation.
-            if (Array.isArray(steps)) {
-                const responseParserTool = steps.find((step) => step.tool === 'format_final_json_response');
-                if (responseParserTool && outputParser) {
-                    const toolInput = responseParserTool.toolInput;
-                    // Ensure the tool input is a string
-                    const parserInput = toolInput instanceof Object ? JSON.stringify(toolInput) : toolInput;
-                    const returnValues = (await outputParser.parse(parserInput)) as Record<string, unknown>;
-                    return handleParsedStepOutput(returnValues, memory);
-                }
-            }
+	(outputParser?: N8nOutputParser, memory?: BaseChatMemory) =>
+	async (steps: AgentFinish | AgentAction[]): Promise<AgentFinish | AgentAction[]> => {
+		// Check if the steps contain the 'format_final_json_response' tool invocation.
+		if (Array.isArray(steps)) {
+			const responseParserTool = steps.find((step) => step.tool === 'format_final_json_response');
+			if (responseParserTool && outputParser) {
+				const toolInput = responseParserTool.toolInput;
+				// Ensure the tool input is a string
+				const parserInput = toolInput instanceof Object ? JSON.stringify(toolInput) : toolInput;
+				const returnValues = (await outputParser.parse(parserInput)) as Record<string, unknown>;
+				return handleParsedStepOutput(returnValues, memory);
+			}
+		}
 
-            // Otherwise, if the steps contain a returnValues field, try to parse them manually.
-            if (outputParser && typeof steps === 'object' && (steps as AgentFinish).returnValues) {
-                const finalResponse = (steps as AgentFinish).returnValues;
-                let parserInput: string;
+		// Otherwise, if the steps contain a returnValues field, try to parse them manually.
+		if (outputParser && typeof steps === 'object' && (steps as AgentFinish).returnValues) {
+			const finalResponse = (steps as AgentFinish).returnValues;
+			let parserInput: string;
 
-                if (finalResponse instanceof Object) {
-                    if ('output' in finalResponse) {
-                        try {
-                            // If the output is an object, we will try to parse it as JSON
-                            // this is because parser expects stringified JSON object like { "output": { .... } }
-                            // so we try to parse the output before wrapping it and then stringify it
-                            parserInput = JSON.stringify({ output: jsonParse(finalResponse.output) });
-                        } catch (error) {
-                            // Fallback to the raw output if parsing fails.
-                            parserInput = finalResponse.output;
-                        }
-                    } else {
-                        // If the output is not an object, we will stringify it as it is
-                        parserInput = JSON.stringify(finalResponse);
-                    }
-                } else {
-                    parserInput = finalResponse;
-                }
+			if (finalResponse instanceof Object) {
+				if ('output' in finalResponse) {
+					try {
+						// If the output is an object, we will try to parse it as JSON
+						// this is because parser expects stringified JSON object like { "output": { .... } }
+						// so we try to parse the output before wrapping it and then stringify it
+						parserInput = JSON.stringify({ output: jsonParse(finalResponse.output) });
+					} catch (error) {
+						// Fallback to the raw output if parsing fails.
+						parserInput = finalResponse.output;
+					}
+				} else {
+					// If the output is not an object, we will stringify it as it is
+					parserInput = JSON.stringify(finalResponse);
+				}
+			} else {
+				parserInput = finalResponse;
+			}
 
-                const returnValues = (await outputParser.parse(parserInput)) as Record<string, unknown>;
-                return handleParsedStepOutput(returnValues, memory);
-            }
+			const returnValues = (await outputParser.parse(parserInput)) as Record<string, unknown>;
+			return handleParsedStepOutput(returnValues, memory);
+		}
 
-            return handleAgentFinishOutput(steps);
-        };
+		return handleAgentFinishOutput(steps);
+	};
 
 /* -----------------------------------------------------------
    Agent Setup Helpers
@@ -261,31 +258,31 @@ export const getAgentStepsParser =
  * @returns The validated chat model
  */
 export async function getChatModel(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
-    index: number = 0,
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
+	index: number = 0,
 ): Promise<BaseChatModel | undefined> {
-    const connectedModels = await ctx.getInputConnectionData('ai_languageModel', 0);
+	const connectedModels = await ctx.getInputConnectionData('ai_languageModel', 0);
 
-    let model;
+	let model;
 
-    if (Array.isArray(connectedModels) && index !== undefined) {
-        if (connectedModels.length <= index) {
-            return undefined;
-        }
-        // We get the models in reversed order from the workflow so we need to reverse them to match the right index
-        const reversedModels = [...connectedModels].reverse();
-        model = reversedModels[index] as BaseChatModel;
-    } else {
-        model = connectedModels as BaseChatModel;
-    }
+	if (Array.isArray(connectedModels) && index !== undefined) {
+		if (connectedModels.length <= index) {
+			return undefined;
+		}
+		// We get the models in reversed order from the workflow so we need to reverse them to match the right index
+		const reversedModels = [...connectedModels].reverse();
+		model = reversedModels[index] as BaseChatModel;
+	} else {
+		model = connectedModels as BaseChatModel;
+	}
 
-    if (!isChatInstance(model) || !model.bindTools) {
-        throw new NodeOperationError(
-            ctx.getNode(),
-            'Tools Agent requires Chat Model which supports Tools calling',
-        );
-    }
-    return model;
+	if (!isChatInstance(model) || !model.bindTools) {
+		throw new NodeOperationError(
+			ctx.getNode(),
+			'Tools Agent requires Chat Model which supports Tools calling',
+		);
+	}
+	return model;
 }
 
 /**
@@ -295,11 +292,9 @@ export async function getChatModel(
  * @returns The connected memory (if any)
  */
 export async function getOptionalMemory(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
 ): Promise<BaseChatMemory | undefined> {
-    return (await ctx.getInputConnectionData('ai_memory', 0)) as
-        | BaseChatMemory
-        | undefined;
+	return (await ctx.getInputConnectionData('ai_memory', 0)) as BaseChatMemory | undefined;
 }
 
 /**
@@ -311,25 +306,25 @@ export async function getOptionalMemory(
  * @returns The array of connected tools
  */
 export async function getTools(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
-    outputParser?: N8nOutputParser,
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
+	outputParser?: N8nOutputParser,
 ): Promise<Array<DynamicStructuredTool | Tool>> {
-    const tools = (await getConnectedTools(ctx, true, false)) as Array<DynamicStructuredTool | Tool>;
+	const tools = (await getConnectedTools(ctx, true, false)) as Array<DynamicStructuredTool | Tool>;
 
-    // If an output parser is available, create a dynamic tool to validate the final output.
-    if (outputParser) {
-        const schema = getOutputParserSchema(outputParser);
-        const structuredOutputParserTool = new DynamicStructuredTool<any>({
-            schema,
-            name: 'format_final_json_response',
-            description:
-                'Use this tool to format your final response to the user in a structured JSON format. This tool validates your output against a schema to ensure it meets the required format. ONLY use this tool when you have completed all necessary reasoning and are ready to provide your final answer. Do not use this tool for intermediate steps or for asking questions. The output from this tool will be directly returned to the user.',
-            // We do not use a function here because we intercept the output with the parser.
-            func: async () => '',
-        });
-        tools.push(structuredOutputParserTool);
-    }
-    return tools;
+	// If an output parser is available, create a dynamic tool to validate the final output.
+	if (outputParser) {
+		const schema = getOutputParserSchema(outputParser);
+		const structuredOutputParserTool = new DynamicStructuredTool<any>({
+			schema,
+			name: 'format_final_json_response',
+			description:
+				'Use this tool to format your final response to the user in a structured JSON format. This tool validates your output against a schema to ensure it meets the required format. ONLY use this tool when you have completed all necessary reasoning and are ready to provide your final answer. Do not use this tool for intermediate steps or for asking questions. The output from this tool will be directly returned to the user.',
+			// We do not use a function here because we intercept the output with the parser.
+			func: async () => '',
+		});
+		tools.push(structuredOutputParserTool);
+	}
+	return tools;
 }
 
 /**`
@@ -341,44 +336,44 @@ export async function getTools(
  * @returns The array of prompt messages
  */
 export async function prepareMessages(
-    ctx: IExecuteFunctions | ISupplyDataFunctions,
-    itemIndex: number,
-    options: {
-        systemMessage?: string;
-        passthroughBinaryImages?: boolean;
-        outputParser?: N8nOutputParser;
-    },
+	ctx: IExecuteFunctions | ISupplyDataFunctions,
+	itemIndex: number,
+	options: {
+		systemMessage?: string;
+		passthroughBinaryImages?: boolean;
+		outputParser?: N8nOutputParser;
+	},
 ): Promise<BaseMessagePromptTemplateLike[]> {
-    const useSystemMessage = options.systemMessage ?? ctx.getNode().typeVersion < 1.9;
+	const useSystemMessage = options.systemMessage ?? ctx.getNode().typeVersion < 1.9;
 
-    const messages: BaseMessagePromptTemplateLike[] = [];
+	const messages: BaseMessagePromptTemplateLike[] = [];
 
-    if (useSystemMessage) {
-        messages.push([
-            'system',
-            `{system_message}${options.outputParser ? '\n\n{formatting_instructions}' : ''}`,
-        ]);
-    } else if (options.outputParser) {
-        messages.push(['system', '{formatting_instructions}']);
-    }
+	if (useSystemMessage) {
+		messages.push([
+			'system',
+			`{system_message}${options.outputParser ? '\n\n{formatting_instructions}' : ''}`,
+		]);
+	} else if (options.outputParser) {
+		messages.push(['system', '{formatting_instructions}']);
+	}
 
-    messages.push(['placeholder', '{chat_history}'], ['human', '{input}']);
+	messages.push(['placeholder', '{chat_history}'], ['human', '{input}']);
 
-    // If there is binary data and the node option permits it, add a binary message
-    const hasBinaryData = ctx.getInputData()?.[itemIndex]?.binary !== undefined;
-    if (hasBinaryData && options.passthroughBinaryImages) {
-        const binaryMessage = await extractBinaryMessages(ctx, itemIndex);
-        if (binaryMessage.content.length !== 0) {
-            messages.push(binaryMessage);
-        } else {
-            ctx.logger.debug('Not attaching binary message, since its content was empty');
-        }
-    }
+	// If there is binary data and the node option permits it, add a binary message
+	const hasBinaryData = ctx.getInputData()?.[itemIndex]?.binary !== undefined;
+	if (hasBinaryData && options.passthroughBinaryImages) {
+		const binaryMessage = await extractBinaryMessages(ctx, itemIndex);
+		if (binaryMessage.content.length !== 0) {
+			messages.push(binaryMessage);
+		} else {
+			ctx.logger.debug('Not attaching binary message, since its content was empty');
+		}
+	}
 
-    // We add the agent scratchpad last, so that the agent will not run in loops
-    // by adding binary messages between each interaction
-    messages.push(['placeholder', '{agent_scratchpad}']);
-    return messages;
+	// We add the agent scratchpad last, so that the agent will not run in loops
+	// by adding binary messages between each interaction
+	messages.push(['placeholder', '{agent_scratchpad}']);
+	return messages;
 }
 
 /**
@@ -388,5 +383,6 @@ export async function prepareMessages(
  * @returns The ChatPromptTemplate instance
  */
 export function preparePrompt(messages: BaseMessagePromptTemplateLike[]): ChatPromptTemplate {
-    return ChatPromptTemplate.fromMessages(messages);
+	return ChatPromptTemplate.fromMessages(messages);
 }
+

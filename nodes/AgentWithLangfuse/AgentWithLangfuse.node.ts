@@ -43,8 +43,8 @@ export class AgentWithLangfuse implements INodeType {
 					${getInputs.toString()};
 					return getInputs(true, hasOutputParser, needsFallback);
 				})(
-					!!$parameter.hasOutputParser, 
-					!!$parameter.needsFallback   
+					!!$parameter.hasOutputParser,
+					!!$parameter.needsFallback
 					)
 			}}`,
 		outputs: ['main'],
